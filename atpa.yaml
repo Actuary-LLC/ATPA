@@ -12,8 +12,8 @@ services:
     networks:
       reverse-proxy:
       #ipv6:
-    ports:
-      - "7080:7080"
+    #ports:
+     # - "7080:7080"
       #- "8787:8787"
       #- "13339:13339"
     volumes:
