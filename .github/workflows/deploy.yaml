@@ -1,0 +1,38 @@
+name: 'Deploy'
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  checkout-repository:
+    runs-on: [coral]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: 'Actuary-LLC/ATPA'
+          ref: 'main'       
+      #- name: Configure application
+      #  run: |
+      #    sed -i 's/${AUTHENTIK_ID_OWNTRACKS}/${{ vars.AUTHENTIK_ID_OWNTRACKS }}/' config.yaml
+      #    sed -i 's/${AUTHENTIK_SECRET_OWNTRACKS}/${{ secrets.AUTHENTIK_SECRET_OWNTRACKS }}/' config.yaml
+      #    cat config.yaml
+      #- name: Sleep for 150 seconds
+      #  run: sleep 150s
+      #  shell: bash
+  deploy-task:
+    needs: checkout-repository
+    runs-on: [coral]
+    env:
+      TAG: ${{ github.sha }}
+      CODER_EXTERNAL_AUTH_0_CLIENT_ID: "${{ secrets.OAUTH_GITHUB_CLIENT_ID }}"
+      CODER_EXTERNAL_AUTH_0_CLIENT_SECRET: "${{ secrets.OAUTH_GITHUB_SECRET }}"
+      CODER_OAUTH2_GITHUB_CLIENT_ID: "${{ secrets.CODER_OAUTH2_GITHUB_CLIENT_ID }}"
+      CODER_OAUTH2_GITHUB_CLIENT_SECRET: "${{ secrets.CODER_OAUTH2_GITHUB_CLIENT_SECRET }}"
+      CODER_PG_CONNECTION_URL: "postgresql://${{ vars.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@192.168.2.2:${{ vars.POSTGRES_PORT }}/${{ vars.POSTGRES_DATABASE }}?sslmode=disable"
+    steps:
+      - name: deploy service
+        run: |
+          docker stack deploy -c atpa.yaml exam
