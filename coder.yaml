@@ -1,0 +1,76 @@
+version: "3.9"
+networks:
+  reverse-proxy:
+    external: true
+  #ipv6: #created via docker network create --ipv6 --subnet 2600:1700:85d0:4320::/64 ipv6-network
+  #  driver: overlay
+  #  external: true
+services:
+  coder:
+    image: ghcr.io/coder/coder:latest
+    user: "1000:131" #groupid needs to be the host's docker group
+    networks:
+      reverse-proxy:
+      #ipv6:
+    ports:
+      - "7080:7080"
+      #- "8787:8787"
+      #- "13339:13339"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/mnt/user/docker/volumes/coder:/home/coder"
+    environment:
+      #DEBUGGING
+      CODER_VERBOSE: "true"
+      CODER_TRACE_LOGS: "true"
+      CODER_TRACE_ENABLE: "true"
+      CODER_ENABLE_TERRAFORM_DEBUG_MODE: "true"
+      #ENV:
+      CODER_PG_CONNECTION_URL: ${CODER_PG_CONNECTION_URL}
+      CODER_HTTP_ADDRESS: "0.0.0.0:7080"
+      #HTTP_PROXY: "192.168.2.3:80"
+      #HTTPS_PROXY: "192.168.2.3:443"
+      CODER_ACCESS_URL: "https://atpa.actuary.dev"
+      CODER_WILDCARD_ACCESS_URL: "*.atpa.actuary.dev"
+      #CODER_DERP_FORCE_WEBSOCKETS: "true"
+      NO_PROXY: "*"
+      #HTTP_PROXY: "https://192.168.2.3"
+      #HTTPS_PROXY: "https://192.168.2.3"
+      #group-add: "131" #docker group on host, not sure if this is needed
+      CODER_EXTERNAL_AUTH_0_DISPLAY_NAME: "Coder Github Login"
+      CODER_EXTERNAL_AUTH_0_DISPLAY_ICON: "https://actuary.llc/images/logo/logo@2x.png"
+      CODER_EXTERNAL_AUTH_0_ID: "coder-github-oauth"
+      CODER_EXTERNAL_AUTH_0_TYPE: "github"
+      CODER_EXTERNAL_AUTH_0_CLIENT_ID: ${CODER_EXTERNAL_AUTH_0_CLIENT_ID}
+      CODER_EXTERNAL_AUTH_0_CLIENT_SECRET: ${CODER_EXTERNAL_AUTH_0_CLIENT_SECRET}
+      #CODER Authentication
+      CODER_DISABLE_PASSWORD_AUTH: "true"
+      CODER_OAUTH2_GITHUB_ALLOW_SIGNUPS: "true"
+      CODER_OAUTH2_GITHUB_ALLOW_EVERYONE: "true"
+      #CODER_OAUTH2_GITHUB_ALLOWED_ORGS: "Actuary-LLC"
+      CODER_OAUTH2_GITHUB_CLIENT_ID: ${CODER_OAUTH2_GITHUB_CLIENT_ID}
+      CODER_OAUTH2_GITHUB_CLIENT_SECRET: ${CODER_OAUTH2_GITHUB_CLIENT_SECRET}
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.atpa.rule=Host(`atpa.actuary.dev`) || HostRegexp(`.+\.atpa\.actuary\.dev`)
+        - traefik.http.routers.atpa.tls.domains[0].main=atpa.actuary.dev
+        - traefik.http.routers.atpa.tls.domains[0].sans=*.atpa.actuary.dev
+        - traefik.http.routers.atpa.entrypoints=websecure
+        - traefik.http.routers.atpa.service=atpa
+        - traefik.http.routers.atpa.tls.certresolver=myresolver
+        - traefik.http.services.atpa.loadbalancer.server.port=7080
+        #- "traefik.http.routers.coder.middlewares=coder-websocket"
+        #- "traefik.http.middlewares.coder-websocket.headers.customRequestHeaders.X-Forwarded-Proto=https"
+        #- "traefik.http.middlewares.coder-websocket.headers.customResponseHeaders.Access-Control-Allow-Origin=*"
+        - traefik.http.middlewares.security-headers.headers.stsSeconds=15552000
+        - traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true
+        - traefik.http.middlewares.security-headers.headers.forceSTSHeader=true
+        - traefik.http.services.coder.loadbalancer.passhostheader=true
+        #- "traefik.http.middlewares.security-headers.headers.accessControlAllowMethods=GET,OPTIONS,PUT"
+        #- "traefik.http.middlewares.security-headers.headers.accessControlAllowOrigin=*"
+        #- "traefik.http.middlewares.security-headers.headers.accessControlAllowHeaders=Content-Type,Authorization,X-Custom-Header"
+        #- "traefik.http.middlewares.security-headers.headers.accessControlAllowCredentials=true"
+        - traefik.http.routers.coder.middlewares=security-headers
+        ## Middlewares
+#        - "traefik.http.routers.coder.middlewares=authentik@file"
